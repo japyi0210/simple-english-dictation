@@ -42,6 +42,7 @@ class AiReviewActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: ReviewAdapter
     private val reviewList = mutableListOf<Review>()
+    private lateinit var emptyReviewHint: TextView
 
     private lateinit var chatRecyclerView: RecyclerView
     private lateinit var chatAdapter: ChatAdapter
@@ -69,6 +70,8 @@ class AiReviewActivity : AppCompatActivity() {
         adView.loadAd(adRequest)
 
         loadInterstitialAd()
+
+        emptyReviewHint = findViewById(R.id.empty_review_hint)
 
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -163,7 +166,7 @@ class AiReviewActivity : AppCompatActivity() {
                         }
                         put(JSONObject().apply {
                             put("role", "user")
-                            put("content", "$question\n\n당신은 영어선생님으로써 답변은 최대 3문장의 한글로 해주세요.")
+                            put("content", "$question\n\nProvide a feedback in KOREAN using 2 or 3 sentences in a friendly tone.")
                         })
                     }
 
@@ -263,6 +266,7 @@ class AiReviewActivity : AppCompatActivity() {
                     reviewList.add(review)
                 }
                 adapter.notifyDataSetChanged()
+                emptyReviewHint.visibility = if (reviewList.isEmpty()) View.VISIBLE else View.GONE
             }
             .addOnFailureListener {
                 Toast.makeText(this, "리뷰를 불러오는 데 실패했습니다.", Toast.LENGTH_SHORT).show()

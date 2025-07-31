@@ -14,6 +14,7 @@ import android.speech.tts.Voice
 import android.view.inputmethod.InputMethodManager
 import android.view.animation.AnimationUtils
 import android.widget.*
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.play.core.review.ReviewManagerFactory
@@ -570,7 +571,7 @@ class MainActivity : AppCompatActivity() {
         resultView.text = "정답률: ${rate}% ($correctCount/$total)"
         resultView.setTextColor(Color.BLACK)
 
-        if (!prefs.getBoolean("review_shown", false) && correctCount >= 10) {
+        if (!prefs.getBoolean("review_shown", false) && correctCount >= 3) {
             prefs.edit().putBoolean("review_shown", true).apply()
             showReviewDialogIfEligible()
         }
@@ -594,12 +595,18 @@ class MainActivity : AppCompatActivity() {
 
         request.addOnCompleteListener { task ->
             if (task.isSuccessful) {
+                Log.d("Review", "✅ Review flow requested successfully")
                 val reviewInfo = task.result
                 val flow = manager.launchReviewFlow(this, reviewInfo)
-                flow.addOnCompleteListener {
+                flow.addOnCompleteListener { result ->
+                    if (result.isSuccessful) {
+                        Log.d("Review", "✅ Review dialog launched successfully")
+                    } else {
+                        Log.e("Review", "❌ Review dialog failed to launch")
+                    }
                 }
             } else {
-                Toast.makeText(this, "리뷰 요청을 불러오지 못했어요.", Toast.LENGTH_SHORT).show()
+                Log.e("Review", "❌ Failed to request review flow: ${task.exception}")
             }
         }
     }
@@ -634,7 +641,7 @@ class MainActivity : AppCompatActivity() {
             val prompt = """
                 - You are an English dictation app.
                 - The app reads \"$correctText\", and the user submits \"$userInput\".
-                - Provide a feedback in KOREAN using 2 or 3 sentences.
+                - Provide a feedback in KOREAN using 2 or 3 sentences in a friendly tone.
                 - If the answer is incorrect, point out exactly what part was wrong and explain why it was a mistake.
             """.trimIndent()
 

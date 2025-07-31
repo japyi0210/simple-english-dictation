@@ -14,8 +14,8 @@ android {
         applicationId = "com.japyi0210.simpleenglishdictation"
         minSdk = 23
         targetSdk = 35
-        versionCode = 26
-        versionName = "1.3.6"
+        versionCode = 28
+        versionName = "1.3.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // ✅ OpenAI API 키를 BuildConfig에 안전하게 주입

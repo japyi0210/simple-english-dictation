@@ -1,8 +1,8 @@
 package com.japyi0210.simpleenglishdictation
 
 import android.app.AlertDialog
-import android.content.Context
-import android.content.Intent
+import android.content.*
+import android.net.Uri
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -12,7 +12,7 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import java.util.Calendar
+import java.util.*
 
 class ScenarioSelectActivity : AppCompatActivity() {
 
@@ -24,20 +24,26 @@ class ScenarioSelectActivity : AppCompatActivity() {
     private lateinit var orderSpinner: Spinner
     private lateinit var listView: ListView
 
-    private val orderOptions = listOf("순서대로 문장 듣기", "무작위로 문장 듣기")
+    private val orderOptions = listOf("순서대로 듣기", "무작위로 듣기")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scenario_select)
 
         showWeeklyRankingDialog()
-
         MobileAds.initialize(this) {}
+        val adView = findViewById<AdView>(R.id.adView)
+        val adRequest = AdRequest.Builder().build()
+        adView.loadAd(adRequest)
         loadInterstitialAd()
 
         listView = findViewById(R.id.listViewScenarios)
         categorySpinner = findViewById(R.id.categorySpinner)
         orderSpinner = findViewById(R.id.orderSpinner)
+
+        // ✅ 친구에게 추천하기 버튼 리스너 연결
+        val shareButton = findViewById<Button>(R.id.button_share)
+        shareButton.setOnClickListener { showShareDialog() }
 
         val allScenarios = mutableListOf(
             Scenario("무작위 문장 듣기", "all", "전체", "all.webp")
@@ -124,6 +130,71 @@ class ScenarioSelectActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ 추천 공유 다이얼로그
+    private fun showShareDialog() {
+        val options = arrayOf("카카오톡으로 공유", "문자메시지로 공유", "이메일로 공유", "링크 복사")
+
+        AlertDialog.Builder(this)
+            .setTitle("친구에게 추천하기")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> shareViaKakao()
+                    1 -> shareViaSMS()
+                    2 -> shareViaEmail()
+                    3 -> copyLinkToClipboard()
+                }
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    private fun getShareText(): String {
+        return """
+            ✨ 영어 받아쓰기 앱 추천! [영받쓰AI]
+            AI피드백으로 실생활 회화를 쉽고 재미있게 배워보세요 ✍️
+
+            📱 앱 다운로드:
+            https://play.google.com/store/apps/details?id=com.japyi0210.simpleenglishdictation
+        """.trimIndent()
+    }
+
+    private fun shareViaKakao() {
+        val kakaoIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            `package` = "com.kakao.talk"
+            putExtra(Intent.EXTRA_TEXT, getShareText())
+        }
+        try {
+            startActivity(kakaoIntent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "카카오톡이 설치되어 있지 않습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun shareViaSMS() {
+        val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("smsto:")
+            putExtra("sms_body", getShareText())
+        }
+        startActivity(smsIntent)
+    }
+
+    private fun shareViaEmail() {
+        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:")
+            putExtra(Intent.EXTRA_SUBJECT, "영어 받아쓰기 앱 추천!")
+            putExtra(Intent.EXTRA_TEXT, getShareText())
+        }
+        startActivity(emailIntent)
+    }
+
+    private fun copyLinkToClipboard() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("앱 링크", getShareText())
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(this, "링크가 클립보드에 복사되었습니다!", Toast.LENGTH_SHORT).show()
+    }
+
     private fun updateList(filteredScenarios: List<Scenario>) {
         val prefs = getSharedPreferences("UsedSentences", Context.MODE_PRIVATE)
         val allScenarioKeys = loadScenarios().map { it.fileKey }
@@ -139,9 +210,14 @@ class ScenarioSelectActivity : AppCompatActivity() {
                 prefs.getStringSet("used_${scenario.fileKey}", emptySet())?.size ?: 0
             }
 
-            val progressText = " ($usedCount / $totalCount)"
+            val displayName = if (scenario.fileKey == "all") {
+                scenario.name  // 괄호 없이
+            } else {
+                "${scenario.name} ($usedCount / $totalCount)"  // 괄호 포함
+            }
+
             Scenario(
-                name = scenario.name + progressText,
+                name = displayName,
                 fileKey = scenario.fileKey,
                 category = scenario.category,
                 imageFileName = scenario.imageFileName
@@ -163,6 +239,7 @@ class ScenarioSelectActivity : AppCompatActivity() {
             startActivity(intent)
         }
     }
+
 
     private fun loadScenarios(): List<Scenario> {
         return try {
